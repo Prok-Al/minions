@@ -33,6 +33,8 @@ jobs:
 
       - name: Generate data.json
         run: uv run main.py
+        env:
+          ROSTICS_PROXY: ${{ secrets.ROSTICS_PROXY }}
 
       - name: Sanity check data.json
         run: |
