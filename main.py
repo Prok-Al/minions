@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
@@ -38,11 +39,19 @@ REQUEST_TIMEOUT = 30
 MAX_WORKERS = 8
 MAX_RETRIES = 5
 BACKOFF_FACTOR = 1.0
+PROXY_ENV_VAR = "ROSTICS_PROXY"
 
 
 def build_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(DEFAULT_HEADERS)
+
+    proxy = os.environ.get(PROXY_ENV_VAR, "").strip()
+    if proxy:
+        session.proxies.update({"http": proxy, "https": proxy})
+        logger.info("Запросы идут через прокси")
+    else:
+        logger.info("Прокси не задан, прямое соединение")
 
     retry = Retry(
         total=MAX_RETRIES,
