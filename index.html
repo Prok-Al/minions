@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Миньоны в Rostics — карта ресторанов</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --yellow: #ffd200;
+            --yellow-dark: #f4b400;
+            --ink: #2b2410;
+            --ink-soft: #6b6350;
+            --overall: #2f6db3;
+            --card: #ffffff;
+            --shadow: 0 8px 24px rgba(0, 0, 0, .18);
+            --radius: 16px;
+            --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-display: "Unbounded", var(--font-body);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            height: 100%;
+            font-family: var(--font-body);
+            color: var(--ink);
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #map { flex: 1; min-height: 0; position: relative; }
+
+        .topbar {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--yellow);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .15);
+            flex-shrink: 0;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: clamp(13px, 3.6vw, 18px);
+            letter-spacing: .2px;
+            white-space: nowrap;
+        }
+
+        .brand__logo {
+            width: 34px;
+            height: 34px;
+            color: var(--ink);
+            flex-shrink: 0;
+        }
+
+        .brand__logo svg { width: 100%; height: 100%; display: block; }
+
+        .counter {
+            margin-left: auto;
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--ink);
+            white-space: nowrap;
+            opacity: .8;
+        }
+        .counter b { color: var(--overall); opacity: 1; }
+
+        .donate {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--ink);
+            color: var(--yellow);
+            border-radius: 999px;
+            padding: 9px 16px;
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 13px;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: transform .12s ease, background .12s ease;
+        }
+        .donate:hover { background: #000; transform: translateY(-1px); }
+        .donate svg {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            transform-origin: center;
+            animation: heartbeat 1.5s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%   { transform: scale(1); }
+            12%  { transform: scale(1.28); }
+            24%  { transform: scale(1); }
+            36%  { transform: scale(1.28); }
+            52%  { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .donate svg { animation: none; }
+        }
+
+        @media (max-width: 560px) {
+            .topbar { padding: 10px 14px; gap: 8px; }
+            .counter { display: none; }
+            .donate__text { display: none; }
+            .donate {
+                margin-left: auto;
+                padding: 10px 13px;
+            }
+            .donate svg { width: 17px; height: 17px; }
+        }
+
+        .pin {
+            position: relative;
+            width: 46px;
+            height: 58px;
+            transform: translate(-50%, -100%);
+            cursor: pointer;
+            transition: transform .12s ease;
+        }
+        .pin:hover { transform: translate(-50%, -104%) scale(1.06); }
+
+        .pin__badge {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: var(--yellow);
+            border: 3px solid #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, .35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .pin__badge::after {
+            content: "";
+            position: absolute;
+            bottom: -7px;
+            left: 50%;
+            width: 14px;
+            height: 14px;
+            background: var(--yellow);
+            border-right: 3px solid #fff;
+            border-bottom: 3px solid #fff;
+            transform: translateX(-50%) rotate(45deg);
+        }
+
+        .pin__icon {
+            width: 32px;
+            height: 32px;
+            color: #3a2a12;
+            position: relative;
+            z-index: 1;
+        }
+        .pin__icon svg { width: 100%; height: 100%; display: block; }
+
+        .cluster {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--yellow);
+            border: 3px solid #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, .35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--ink);
+            transform: translate(-50%, -50%);
+        }
+
+        .modal[hidden] { display: none; }
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        @media (min-width: 640px) {
+            .modal { align-items: center; }
+        }
+
+        .modal__backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(20, 16, 4, .55);
+            backdrop-filter: blur(2px);
+            animation: fade .2s ease;
+        }
+
+        .modal__dialog {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+            max-height: 88vh;
+            overflow-y: auto;
+            background: #fff8e1;
+            border-radius: 20px 20px 0 0;
+            box-shadow: var(--shadow);
+            animation: slideUp .26s cubic-bezier(.2, .8, .2, 1);
+        }
+        @media (min-width: 640px) {
+            .modal__dialog { border-radius: 20px; }
+        }
+
+        .modal__close {
+            position: absolute;
+            top: 14px; right: 14px;
+            width: 36px; height: 36px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, .08);
+            color: var(--ink);
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .modal__close:hover { background: rgba(0, 0, 0, .16); }
+
+        .modal__header {
+            padding: 22px 22px 16px;
+            background: var(--yellow);
+            border-radius: 20px 20px 0 0;
+        }
+        @media (max-width: 639px) {
+            .modal__header { border-radius: 20px 20px 0 0; }
+        }
+
+        .modal__title {
+            margin: 0 40px 6px 0;
+            font-family: var(--font-display);
+            font-size: 19px;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+        .modal__address {
+            margin: 0;
+            font-size: 14px;
+            color: #5a4d24;
+            line-height: 1.4;
+        }
+        .modal__meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: var(--font-display);
+            font-size: 11px;
+            font-weight: 500;
+            padding: 5px 11px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .65);
+        }
+        .chip svg { width: 12px; height: 12px; flex-shrink: 0; }
+        .chip--open { background: #1f9d4d; color: #fff; }
+        .chip--closed { background: #c0392b; color: #fff; }
+
+        .modal__section-title {
+            margin: 18px 22px 6px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            color: var(--ink-soft);
+        }
+
+        .products {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            padding: 6px 22px 8px;
+        }
+
+        .product {
+            background: var(--card);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            display: flex;
+            flex-direction: column;
+        }
+        .product__img {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: contain;
+            background: #f3f3f3;
+            padding: 6px;
+        }
+        .product__body {
+            padding: 10px 12px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+        .product__name {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.3;
+            flex: 1;
+        }
+        .product__price {
+            font-family: var(--font-display);
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--overall);
+        }
+
+        .modal__footer {
+            padding: 8px 22px 22px;
+        }
+        .route-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            border-radius: 14px;
+            background: var(--ink);
+            color: var(--yellow);
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        .route-btn:hover { background: #000; }
+
+        .toast {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 40;
+            max-width: 420px;
+            background: #fff;
+            border-radius: var(--radius);
+            padding: 22px 26px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .toast[hidden] { display: none; }
+        .toast code {
+            background: #f2f2f2;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        @keyframes fade { from { opacity: 0; } }
+        @keyframes slideUp { from { transform: translateY(24px); opacity: .4; } }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand__logo" id="brandLogo"></span>
+            <span>Миньоны в Rostics</span>
+        </div>
+        <div class="counter">Ресторанов: <b id="count">0</b></div>
+        <a class="donate" href="https://pay.cloudtips.ru/p/bc3397c5" target="_blank" rel="noopener"
+           title="Поддержать проект">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/>
+            </svg>
+            <span class="donate__text">Поддержать</span>
+        </a>
+    </header>
+
+    <div id="map"></div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <div class="modal" id="modal" hidden>
+        <div class="modal__backdrop" data-close></div>
+        <div class="modal__dialog" role="dialog" aria-modal="true">
+            <button class="modal__close" data-close aria-label="Закрыть">&times;</button>
+            <div class="modal__header">
+                <h2 class="modal__title" id="mTitle"></h2>
+                <p class="modal__address" id="mAddress"></p>
+                <div class="modal__meta" id="mMeta"></div>
+            </div>
+            <div class="modal__section-title">Доступные комбо</div>
+            <div class="products" id="mProducts"></div>
+            <div class="modal__footer">
+                <a class="route-btn" id="mRoute" target="_blank" rel="noopener">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>
+                    </svg>
+                    Открыть в Яндекс.Картах
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const YANDEX_API_KEY = "3c25a28a-5015-4279-ba9b-e2a21263687a";
+        const CDN_BASE = "https://s82079.cdn.ngenix.net/295x0/";
+        const DEFAULT_CENTER = [55.751574, 37.573856];
+
+        const state = { restaurants: [], catalog: {}, placemarks: [], minionSvg: "" };
+
+        const el = {
+            map: document.getElementById("map"),
+            toast: document.getElementById("toast"),
+            count: document.getElementById("count"),
+            brandLogo: document.getElementById("brandLogo"),
+            modal: document.getElementById("modal"),
+            mTitle: document.getElementById("mTitle"),
+            mAddress: document.getElementById("mAddress"),
+            mMeta: document.getElementById("mMeta"),
+            mProducts: document.getElementById("mProducts"),
+            mRoute: document.getElementById("mRoute"),
+        };
+
+        function showToast(html) {
+            el.toast.innerHTML = html;
+            el.toast.hidden = false;
+        }
+
+        function formatPrice(kopecks) {
+            const rub = (kopecks || 0) / 100;
+            return rub.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) + " ₽";
+        }
+
+        function formatTime(t) {
+            return typeof t === "string" ? t.slice(0, 5) : "";
+        }
+
+        function ru(field) {
+            if (!field) return "";
+            return typeof field === "string" ? field : (field.ru || field.en || "");
+        }
+
+        async function loadMinion() {
+            try {
+                const res = await fetch("./bob.svg");
+                let txt = await res.text();
+                txt = txt.replace(/#30302F/gi, "currentColor");
+                return txt;
+            } catch (e) {
+                return '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>';
+            }
+        }
+
+        async function loadData() {
+            const res = await fetch("./data.json");
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            const data = await res.json();
+            state.catalog = data.products || {};
+            state.restaurants = (data.restaurants || []).filter(
+                (r) => r.storePublic?.contacts?.coordinates
+            );
+        }
+
+        function loadYandex() {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement("script");
+                s.src = `https://api-maps.yandex.ru/2.1/?apikey=${YANDEX_API_KEY}&lang=ru_RU`;
+                s.onload = () => window.ymaps.ready(resolve);
+                s.onerror = () => reject(new Error("Не удалось загрузить API Яндекс.Карт"));
+                document.head.appendChild(s);
+            });
+        }
+
+        let map, clusterer;
+
+        function buildMarkerLayout() {
+            return ymaps.templateLayoutFactory.createClass(
+                `<div class="pin"><div class="pin__badge"><span class="pin__icon">${state.minionSvg}</span></div></div>`
+            );
+        }
+
+        function buildClusterLayout() {
+            return ymaps.templateLayoutFactory.createClass(
+                `<div class="cluster">{{ properties.geoObjects.length }}</div>`
+            );
+        }
+
+        function initMap() {
+            map = new ymaps.Map(
+                "map",
+                { center: DEFAULT_CENTER, zoom: 10, controls: [] }
+            );
+            map.controls.add("zoomControl", { position: { right: 12, top: 12 } });
+            map.controls.add("geolocationControl", { position: { right: 12, top: 92 } });
+
+            const iconLayout = buildMarkerLayout();
+            clusterer = new ymaps.Clusterer({
+                clusterDisableClickZoom: false,
+                clusterIconLayout: buildClusterLayout(),
+                clusterIconShape: { type: "Circle", coordinates: [0, 0], radius: 22 },
+                gridSize: 72,
+                minClusterSize: 2,
+            });
+
+            state.placemarks = state.restaurants.map((r, i) => {
+                const c = r.storePublic.contacts.coordinates;
+                const pm = new ymaps.Placemark(
+                    [c.latitude, c.longitude],
+                    { restIndex: i },
+                    {
+                        iconLayout,
+                        iconShape: { type: "Rectangle", coordinates: [[-23, -58], [23, 0]] },
+                    }
+                );
+                pm.events.add("click", () => openModal(i));
+                return pm;
+            });
+
+            clusterer.add(state.placemarks);
+            map.geoObjects.add(clusterer);
+            el.count.textContent = state.placemarks.length;
+
+            if (state.placemarks.length) {
+                map.setBounds(clusterer.getBounds(), { checkZoomRange: true, zoomMargin: 60 });
+            }
+        }
+
+        function openModal(index) {
+            const r = state.restaurants[index];
+            const sp = r.storePublic;
+            const coords = sp.contacts.coordinates;
+
+            el.mTitle.textContent = ru(sp.title);
+            el.mAddress.textContent = ru(sp.contacts.streetAddress);
+
+            el.mMeta.innerHTML = "";
+            const isOpen = sp.openNow === true;
+            const statusChip = document.createElement("span");
+            statusChip.className = "chip " + (isOpen ? "chip--open" : "chip--closed");
+            statusChip.textContent = isOpen ? "Открыто" : "Закрыто";
+            el.mMeta.appendChild(statusChip);
+
+            const regular = sp.openingHours?.regular;
+            if (regular?.startTimeLocal) {
+                const hours = document.createElement("span");
+                hours.className = "chip";
+                hours.innerHTML =
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+                    '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>';
+                hours.append(
+                    `${formatTime(regular.startTimeLocal)}–${formatTime(regular.endTimeLocal)}`
+                );
+                el.mMeta.appendChild(hours);
+            }
+
+            el.mProducts.innerHTML = "";
+            r.products.forEach((p) => {
+                const info = state.catalog[p.id] || {};
+                const card = document.createElement("div");
+                card.className = "product";
+
+                const img = document.createElement("img");
+                img.className = "product__img";
+                img.loading = "lazy";
+                img.alt = ru(info.title);
+                img.src = info.image ? CDN_BASE + info.image : "";
+                img.onerror = () => { img.style.visibility = "hidden"; };
+
+                const body = document.createElement("div");
+                body.className = "product__body";
+
+                const name = document.createElement("div");
+                name.className = "product__name";
+                name.textContent = ru(info.title) || `Продукт ${p.id}`;
+
+                const price = document.createElement("div");
+                price.className = "product__price";
+                price.textContent = formatPrice(p.price);
+
+                body.append(name, price);
+                card.append(img, body);
+                el.mProducts.appendChild(card);
+            });
+
+            el.mRoute.href =
+                `https://yandex.ru/maps/?ll=${coords.longitude},${coords.latitude}` +
+                `&z=17&pt=${coords.longitude},${coords.latitude},pm2rdm`;
+
+            el.modal.hidden = false;
+        }
+
+        function closeModal() {
+            el.modal.hidden = true;
+        }
+
+        el.modal.addEventListener("click", (e) => {
+            if (e.target.hasAttribute("data-close")) closeModal();
+        });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") closeModal();
+        });
+
+        async function main() {
+            state.minionSvg = await loadMinion();
+            el.brandLogo.innerHTML = state.minionSvg;
+
+            if (YANDEX_API_KEY === "YOUR_API_KEY" || !YANDEX_API_KEY) {
+                showToast(
+                    "Нужен ключ API Яндекс.Карт.<br>Получите его в кабинете разработчика и впишите в " +
+                    "<code>YANDEX_API_KEY</code> в <code>index.html</code>."
+                );
+                return;
+            }
+
+            try {
+                await loadData();
+            } catch (e) {
+                showToast("Не удалось загрузить <code>data.json</code>.<br>Запустите страницу через сервер (или GitHub Pages).");
+                return;
+            }
+
+            try {
+                await loadYandex();
+            } catch (e) {
+                showToast(e.message);
+                return;
+            }
+
+            initMap();
+        }
+
+        main();
+    </script>
+</body>
+</html>
