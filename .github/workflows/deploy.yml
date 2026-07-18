@@ -1,0 +1,61 @@
+name: Update data and deploy to Pages
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate data.json
+        run: uv run main.py
+
+      - name: Sanity check data.json
+        run: |
+          count=$(python3 -c "import json; print(len(json.load(open('data.json'))['restaurants']))")
+          echo "Collected restaurants: $count"
+          if [ "$count" -lt 1 ]; then
+            echo "::error::data.json contains no restaurants — aborting deploy"
+            exit 1
+          fi
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp index.html bob.svg data.json _site/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
