@@ -2,7 +2,7 @@ name: Update data and deploy to Pages
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "0 * * * *"
   push:
     branches: [main]
   workflow_dispatch:
