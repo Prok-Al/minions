@@ -476,7 +476,7 @@
         }
 
         async function loadData() {
-            const res = await fetch("./data.json");
+            const res = await fetch("./data.json?t=" + Date.now(), { cache: "no-store" });
             if (!res.ok) throw new Error("HTTP " + res.status);
             const data = await res.json();
             state.catalog = data.products || {};
